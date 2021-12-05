@@ -31,6 +31,12 @@ const config = {
     transmission_type: {
       'автомат': 'automatic',
       'механика': 'manual'
+    },
+    drive_type: {
+      "передний привод": "FWD",
+      "задний привод": "RWD",
+      "постоянный полный привод": "permanent AWD",
+      "подключаемый полный привод": "pluggable AWD"
     }
   }
 };

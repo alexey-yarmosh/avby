@@ -21,6 +21,7 @@ const getItem = advert => {
     bodyType: getProperty(advert, 'body_type'),
     engineVolume: getProperty(advert, 'engine_capacity'),
     engineType: getProperty(advert, 'engine_type'),
+    driveType: getProperty(advert, 'drive_type'),
     transmissionType: getProperty(advert, 'transmission_type'),
     mileage: getProperty(advert, 'mileage_km')
   }
@@ -36,6 +37,9 @@ const getProperty = (advert, fieldName) => {
     }
     const isElectro = getProperty(advert, 'engine_type') === 'electro'; // electric engines do not have volume property
     if (fieldName === 'engine_capacity' && isElectro) {
+      return '';
+    }
+    if (fieldName === 'drive_type') { // some cars do not have drive info, it can be inserted manually
       return '';
     }
     console.log('advert.publicUrl', advert.publicUrl);
@@ -102,12 +106,13 @@ const save = async (items) => {
     mileage,
     engineVolume,
     engineType,
+    driveType,
     transmissionType,
     publishedAt,
     url
-  }) => [id, brand, model, year, price, mileage, bodyType, engineType, engineVolume, transmissionType, url, publishedAt])
+  }) => [id, brand, model, year, price, mileage, bodyType, engineType, engineVolume, driveType, transmissionType, url, publishedAt])
   await client.query(format(`
-    INSERT INTO vehicles (id, brand, model, year, price, mileage, body_type, engine_type, engine_volume, transmission_type, url, published_at) 
+    INSERT INTO vehicles (id, brand, model, year, price, mileage, body_type, engine_type, engine_volume, drive_type, transmission_type, url, published_at) 
     VALUES %L 
     ON CONFLICT (id) DO UPDATE 
     SET
@@ -120,6 +125,7 @@ const save = async (items) => {
       body_type = EXCLUDED.body_type,
       engine_type = EXCLUDED.engine_type,
       engine_volume = EXCLUDED.engine_volume,
+      drive_type = EXCLUDED.drive_type,
       transmission_type = EXCLUDED.transmission_type,
       url = EXCLUDED.url,
       published_at = EXCLUDED.published_at;
@@ -127,7 +133,7 @@ const save = async (items) => {
 }
 
 const run = async () => {
-  for (let i = 7500; i < 20000; i+=100) { // there are a lot of cheap cars so the step is small
+  for (let i = 0; i < 20000; i+=100) { // there are a lot of cheap cars so the step is small
     const items = await getItems(i, 100, 1);
     await save(items);
   }
