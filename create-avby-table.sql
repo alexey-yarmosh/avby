@@ -9,7 +9,7 @@ CREATE TABLE vehicles (
     mileage int NOT NULL,
     body_type varchar(255) NOT NULL,
     engine_type varchar(255) NOT NULL,
-    engine_capacity varchar(255) NOT NULL,
+    engine_volume varchar(255) NOT NULL,
     transmission_type varchar(255) NOT NULL,
     url varchar(255) NOT NULL,
     published_at varchar(255) NOT NULL

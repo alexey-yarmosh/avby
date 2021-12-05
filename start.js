@@ -1,6 +1,7 @@
 const { Client } = require('pg');
 const format = require('pg-format');
 const axios = require('axios');
+const config = require('./config');
 
 const client = new Client({
   user: 'postgres',
@@ -18,7 +19,7 @@ const getItem = advert => {
     url: advert.publicUrl,
     price: advert.price.usd.amount,
     bodyType: getProperty(advert, 'body_type'),
-    engineCapacity: getProperty(advert, 'engine_capacity'),
+    engineVolume: getProperty(advert, 'engine_capacity'),
     engineType: getProperty(advert, 'engine_type'),
     transmissionType: getProperty(advert, 'transmission_type'),
     mileage: getProperty(advert, 'mileage_km')
@@ -27,23 +28,39 @@ const getItem = advert => {
 
 const getProperty = (advert, fieldName) => {
   try {
-    return advert.properties.find(({ name }) => name === fieldName).value;
+    const value = advert.properties.find(({ name }) => name === fieldName).value;
+    return translate(fieldName, value);
   } catch (err) {
-    if (fieldName === 'mileage_km') {
+    if (fieldName === 'mileage_km') { // if mileage is 0, there is no such such item in properties array
       return 0;
     }
-    const isElectro = getProperty(advert, 'engine_type') === 'электро';
-    if (isElectro) {
+    const isElectro = getProperty(advert, 'engine_type') === 'electro'; // electric engines do not have volume property
+    if (fieldName === 'engine_capacity' && isElectro) {
       return '';
     }
-    console.log('advert.publicUrl', advert.publicUrl)
+    console.log('advert.publicUrl', advert.publicUrl);
     console.log('advert.properties', advert.properties);
     console.log('fieldName', fieldName);
     throw err;
   }
 }
 
-const getItems = async (price, page) => {
+const translate = (fieldName, value) => {
+  const translations = config.translations[fieldName];
+  if (translations) {
+    const translatedValue = translations[value];
+    if (!translatedValue) {
+      console.log('fieldName', fieldName);
+      console.log('value', value);
+      throw new Error();
+    }
+    return translatedValue;
+  } else {
+    return value;
+  }
+}
+
+const getItems = async (price, stepSize, page) => {
   let subResult = [];
   const response = await axios.post('https://api.av.by/offer-types/cars/filters/main/apply', {
     "page": page,
@@ -51,7 +68,7 @@ const getItems = async (price, page) => {
         {
             "name": "price_usd",
             "value": {
-                "max": `${price+10000}`,
+                "max": `${price+stepSize}`,
                 "min": `${price}`
             }
         },
@@ -66,7 +83,7 @@ const getItems = async (price, page) => {
   const adverts = response.data.adverts.map(getItem);
 
   if (adverts.length) {
-    subResult = await getItems(price, page + 1);
+    subResult = await getItems(price, stepSize, page + 1);
   }
   return [...adverts, ...subResult];
 }
@@ -83,14 +100,14 @@ const save = async (items) => {
     price,
     bodyType,
     mileage,
-    engineCapacity,
+    engineVolume,
     engineType,
     transmissionType,
     publishedAt,
     url
-  }) => [id, brand, model, year, price, mileage, bodyType, engineType, engineCapacity, transmissionType, url, publishedAt])
+  }) => [id, brand, model, year, price, mileage, bodyType, engineType, engineVolume, transmissionType, url, publishedAt])
   await client.query(format(`
-    INSERT INTO vehicles (id, brand, model, year, price, mileage, body_type, engine_type, engine_capacity, transmission_type, url, published_at) 
+    INSERT INTO vehicles (id, brand, model, year, price, mileage, body_type, engine_type, engine_volume, transmission_type, url, published_at) 
     VALUES %L 
     ON CONFLICT (id) DO UPDATE 
     SET
@@ -102,7 +119,7 @@ const save = async (items) => {
       mileage = EXCLUDED.mileage,
       body_type = EXCLUDED.body_type,
       engine_type = EXCLUDED.engine_type,
-      engine_capacity = EXCLUDED.engine_capacity,
+      engine_volume = EXCLUDED.engine_volume,
       transmission_type = EXCLUDED.transmission_type,
       url = EXCLUDED.url,
       published_at = EXCLUDED.published_at;
@@ -110,8 +127,18 @@ const save = async (items) => {
 }
 
 const run = async () => {
-  for (let i = 110000; i < 10000000; i+=10000) {
-    const items = await getItems(i, 1);
+  for (let i = 7500; i < 20000; i+=100) { // there are a lot of cheap cars so the step is small
+    const items = await getItems(i, 100, 1);
+    await save(items);
+  }
+
+  for (let i = 20000; i < 100000; i+=1000) { // there is less amount of expensive cars so the step is bigger 
+    const items = await getItems(i, 1000, 1);
+    await save(items);
+  }
+
+  for (let i = 100000; i < 990000; i+=10000) { // fetching very expensive cars with big step
+    const items = await getItems(i, 10000, 1);
     await save(items);
   }
 }
@@ -120,6 +147,7 @@ const main = async () => {
   await client.connect();
   await run();
   await client.end();
+  console.log('DONE!')
 }
 main();
 
