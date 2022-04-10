@@ -15,3 +15,20 @@ CREATE TABLE vehicles (
     url varchar(255) NOT NULL,
     published_at varchar(255) NOT NULL
 );
+
+-- EXPORT
+SELECT
+    brand,
+    model,
+    year,
+    price,
+    mileage,
+    body_type,
+    engine_type,
+    engine_volume,
+    drive_type,
+    transmission_type,
+    url,
+    published_at
+FROM vehicles;
+

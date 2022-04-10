@@ -153,7 +153,7 @@ const main = async () => {
   await client.connect();
   await run();
   await client.end();
-  console.log('DONE!')
+  console.log('DONE!');
 }
 main();
 

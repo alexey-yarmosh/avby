@@ -1,12 +1,17 @@
 ### Commands:
-Run:
 ```
-docker run --name avby -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres
-node start.js
-```
+Create volue:
+docker volume create avby-volume
 
-Save:
-```
-docker commit 6faa99ab5019 avby
-docker save avby > docker-container.tar
+Copy data from .tar file to volume:
+docker run -v avby-volume:/avby-volume -v $(pwd)/backup:/backup ubuntu bash -c "cd /avby-volume && tar xvf /backup/backup.tar --strip 1"
+
+Run db with the volume:
+docker run --name avby -p 5432:5432 -e POSTGRES_PASSWORD=postgres -v avby-volume:/var/lib/postgresql/data postgres
+
+Run app:
+node start.js
+
+Save volume data to the .tar file:
+docker run -v avby-volume:/avby-volume -v $(pwd)/backup:/backup ubuntu bash -c "tar cvf /backup/backup.tar /avby-volume"
 ```
